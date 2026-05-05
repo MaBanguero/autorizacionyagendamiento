@@ -11,7 +11,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   backend:
-    image: T158160601905.dkr.ecr.us-east-1.amazonaws.com/autorizacion-backend:latest
+    image: 158160601905.dkr.ecr.us-east-1.amazonaws.com/autorizacion-backend:latest
     container_name: autorizacion_backend
     restart: always
     environment:
