@@ -1,0 +1,37 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: autorizacion_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: marvin
+      POSTGRES_PASSWORD: 123456
+      POSTGRES_DB: sistema_medico
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    image: T158160601905.dkr.ecr.us-east-1.amazonaws.com/autorizacion-backend:latest
+    container_name: autorizacion_backend
+    restart: always
+    environment:
+      DATABASE_URL: postgresql://marvin:123456@postgres:5432/sistema_medico
+    ports:
+      - "8000:8000"
+    volumes:
+      - pdfs_data:/app/pdfs_autorizaciones
+    depends_on:
+      - postgres
+
+  frontend:
+    image: 158160601905.dkr.ecr.us-east-1.amazonaws.com/autorizacion-frontend:latest
+    container_name: autorizacion_frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  pdfs_data:

@@ -1,0 +1,43 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: autorizacion_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: marvin
+      POSTGRES_PASSWORD: 123456
+      POSTGRES_DB: sistema_medico
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: autorizacion_backend
+    restart: always
+    environment:
+      DATABASE_URL: postgresql://marvin:123456@postgres:5432/sistema_medico
+    ports:
+      - "8000:8000"
+    volumes:
+      - pdfs_data:/app/pdfs_autorizaciones
+    depends_on:
+      - postgres
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: autorizacion_frontend
+    restart: always
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  pdfs_data:
