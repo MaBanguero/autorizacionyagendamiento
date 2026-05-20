@@ -3,6 +3,10 @@ import api from "../../../api/client";
 import { formatDateTime } from "../../../utils/date";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8081";
+function downloadUrl(ordenId) {
+  const token = localStorage.getItem("token");
+  return `${API_BASE}/api/documentos/${ordenId}/descargar${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+}
 
 export default function DocumentsPage() {
   const [pendientes, setPendientes] = useState([]);
@@ -52,7 +56,7 @@ export default function DocumentsPage() {
         <div className="card table-wrap">
           <h3 style={{marginTop: 0}}>Generados</h3>
           <table><thead><tr><th>Orden</th><th>Paciente</th><th>Fecha</th><th></th></tr></thead><tbody>
-            {generados.map((d) => <tr key={d.orden_id}><td>{d.numero_orden}</td><td>{d.paciente}</td><td>{formatDateTime(d.fecha_generacion)}</td><td><a className="btn btn-dark" href={`${API_BASE}/api/documentos/${d.orden_id}/descargar`} target="_blank">Descargar</a></td></tr>)}
+            {generados.map((d) => <tr key={d.orden_id}><td>{d.numero_orden}</td><td>{d.paciente}</td><td>{formatDateTime(d.fecha_generacion)}</td><td><a className="btn btn-dark" href={downloadUrl(d.orden_id)} target="_blank">Descargar</a></td></tr>)}
             {!generados.length && <tr><td colSpan="4">No hay documentos generados.</td></tr>}
           </tbody></table>
         </div>

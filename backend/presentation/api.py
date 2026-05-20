@@ -587,9 +587,18 @@ def rechazar_orden(
 @app.get("/api/documentos/{orden_id}/descargar")
 def descargar_pdf(
     orden_id: str,
+    token: str | None = Query(None),
+    credentials: HTTPAuthorizationCredentials | None = Depends(HTTPBearer(auto_error=False)),
     consulta_service = Depends(get_consulta_service),
-    user: dict = Depends(get_current_user)
 ):
+    if credentials:
+        user = get_current_user(credentials)
+    elif token:
+        user = decode_token(token)
+        if user is None:
+            raise HTTPException(status_code=401, detail="Token inválido o expirado")
+    else:
+        raise HTTPException(status_code=401, detail="Not authenticated")
     try:
         orden = consulta_service.obtener_orden(orden_id)
         if not orden.documento_generado or not orden.ruta_pdf:

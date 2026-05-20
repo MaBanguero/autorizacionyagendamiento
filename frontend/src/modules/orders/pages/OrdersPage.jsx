@@ -9,6 +9,12 @@ function statusClass(status) {
   return "badge badge-pending";
 }
 
+function downloadUrl(orderId) {
+  const base = import.meta.env.VITE_API_URL || "http://127.0.0.1:8081";
+  const token = localStorage.getItem("token");
+  return `${base}/api/documentos/${orderId}/descargar${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+}
+
 export default function OrdersPage() {
   const [ordenes, setOrdenes] = useState([]);
   const [estado, setEstado] = useState("");
@@ -103,7 +109,7 @@ export default function OrdersPage() {
                     {o.estado === "PENDIENTE" && <button className="btn btn-success" onClick={() => autorizar(o.id)}>Autorizar</button>}
                     {o.estado === "PENDIENTE" && <button className="btn btn-danger" onClick={() => rechazar(o.id)}>Rechazar</button>}
                     {o.estado === "AUTORIZADA" && !o.documento_generado && <button className="btn btn-soft" onClick={() => generarPdf(o.id)}>Generar PDF</button>}
-                    {o.documento_generado && <a className="btn btn-dark" href={`${import.meta.env.VITE_API_URL || "http://127.0.0.1:8081"}/api/documentos/${o.id}/descargar`} target="_blank">Descargar</a>}
+                    {o.documento_generado && <a className="btn btn-dark" href={downloadUrl(o.id)} target="_blank">Descargar</a>}
                   </div>
                 </td>
               </tr>

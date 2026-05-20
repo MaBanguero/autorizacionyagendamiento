@@ -30,5 +30,8 @@ export const documentoService = {
   generados: async (params = {}) => (await api.get('/api/documentos/generados', { params })).data,
   generarMasivo: async (sedeId) =>
     (await api.post('/api/documentos/generacion-masiva', null, { params: { sede_id: sedeId || undefined } })).data,
-  descargarUrl: (ordenId) => `${API_BASE_URL}/api/documentos/${ordenId}/descargar`,
+  descargarUrl: (ordenId) => {
+    const token = localStorage.getItem('token');
+    return `${API_BASE_URL}/api/documentos/${ordenId}/descargar${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+  },
 };
