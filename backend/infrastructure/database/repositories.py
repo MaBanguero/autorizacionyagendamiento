@@ -39,6 +39,57 @@ class PostgresSedeRepository(ISedeRepository):
             for s in sedes_db
         ]
 
+    def crear_sede(self, nombre: str, hora_apertura: str, hora_cierre: str, capacidad_diaria: int) -> Sede:
+        from datetime import time as time_type
+        from infrastructure.database.models import SedeModel
+
+        nueva = SedeModel(
+            nombre=nombre,
+            hora_apertura=time_type.fromisoformat(hora_apertura),
+            hora_cierre=time_type.fromisoformat(hora_cierre),
+            capacidad_diaria=capacidad_diaria,
+        )
+        self.db.add(nueva)
+        self.db.commit()
+        self.db.refresh(nueva)
+
+        return Sede(
+            id=str(nueva.id),
+            nombre=nueva.nombre,
+            hora_apertura=nueva.hora_apertura,
+            hora_cierre=nueva.hora_cierre,
+            capacidad_diaria=nueva.capacidad_diaria,
+        )
+
+    def actualizar_sede(self, sede_id: str, nombre: str, hora_apertura: str, hora_cierre: str, capacidad_diaria: int) -> Sede:
+        from datetime import time as time_type
+
+        sede_db = self.db.query(SedeModel).filter(SedeModel.id == sede_id).first()
+        if not sede_db:
+            raise ValueError(f"Sede con ID {sede_id} no encontrada.")
+
+        sede_db.nombre = nombre
+        sede_db.hora_apertura = time_type.fromisoformat(hora_apertura)
+        sede_db.hora_cierre = time_type.fromisoformat(hora_cierre)
+        sede_db.capacidad_diaria = capacidad_diaria
+        self.db.commit()
+        self.db.refresh(sede_db)
+
+        return Sede(
+            id=str(sede_db.id),
+            nombre=sede_db.nombre,
+            hora_apertura=sede_db.hora_apertura,
+            hora_cierre=sede_db.hora_cierre,
+            capacidad_diaria=sede_db.capacidad_diaria,
+        )
+
+    def eliminar_sede(self, sede_id: str) -> None:
+        sede_db = self.db.query(SedeModel).filter(SedeModel.id == sede_id).first()
+        if not sede_db:
+            raise ValueError(f"Sede con ID {sede_id} no encontrada.")
+        self.db.delete(sede_db)
+        self.db.commit()
+
 
 class PostgresOrdenRepository(IOrdenRepository):
     def __init__(self, db_session: Session):
@@ -161,6 +212,7 @@ class PostgresOrdenRepository(IOrdenRepository):
         Data Mapper: Convierte el modelo acoplado a SQLAlchemy en una entidad
         pura de Pydantic para la capa de Casos de Uso.
         """
+        municipio_id = str(model.paciente.municipio_id) if model.paciente.municipio_id else None
         paciente_domain = Paciente(
             nombre=model.paciente.nombre,
             tipo_documento=model.paciente.tipo_documento,
@@ -170,7 +222,8 @@ class PostgresOrdenRepository(IOrdenRepository):
             telefono=model.paciente.telefono,
             fecha_nacimiento=model.paciente.fecha_nacimiento.date() if model.paciente.fecha_nacimiento else None,
             convenio=model.paciente.convenio,
-            regimen=model.paciente.regimen
+            regimen=model.paciente.regimen,
+            municipio_id=municipio_id,
         )
 
         return OrdenMedica(
@@ -192,6 +245,7 @@ class PostgresOrdenRepository(IOrdenRepository):
             self,
             estado: Optional[str] = None,
             sede_id: Optional[str] = None,
+            con_cita: Optional[bool] = None,
             documento_generado: Optional[bool] = None,
             limit: int = 50,
             offset: int = 0
@@ -205,12 +259,17 @@ class PostgresOrdenRepository(IOrdenRepository):
         if sede_id:
             query = query.filter(OrdenMedicaModel.sede_id == sede_id)
 
+        if con_cita is True:
+            query = query.filter(OrdenMedicaModel.fecha_cita.isnot(None))
+        elif con_cita is False:
+            query = query.filter(OrdenMedicaModel.fecha_cita.is_(None))
+
         if documento_generado is not None:
             query = query.filter(OrdenMedicaModel.documento_generado == documento_generado)
 
         resultados = (
             query
-            .order_by(OrdenMedicaModel.fecha_autorizacion.desc().nullslast())
+            .order_by(OrdenMedicaModel.fecha_cita.desc().nullslast())
             .offset(offset)
             .limit(limit)
             .all()

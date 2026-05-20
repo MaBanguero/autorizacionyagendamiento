@@ -13,6 +13,18 @@ class ISedeRepository(ABC):
     def listar_sedes(self) -> List[Sede]:
         pass
 
+    @abstractmethod
+    def crear_sede(self, nombre: str, hora_apertura: str, hora_cierre: str, capacidad_diaria: int) -> Sede:
+        pass
+
+    @abstractmethod
+    def actualizar_sede(self, sede_id: str, nombre: str, hora_apertura: str, hora_cierre: str, capacidad_diaria: int) -> Sede:
+        pass
+
+    @abstractmethod
+    def eliminar_sede(self, sede_id: str) -> None:
+        pass
+
 
 class IOrdenRepository(ABC):
     @abstractmethod
@@ -40,6 +52,7 @@ class IOrdenRepository(ABC):
             self,
             estado: Optional[str] = None,
             sede_id: Optional[str] = None,
+            con_cita: Optional[bool] = None,
             documento_generado: Optional[bool] = None,
             limit: int = 50,
             offset: int = 0

@@ -1,9 +1,37 @@
-from sqlalchemy import Column, String, Integer, DateTime, Time, Boolean, ForeignKey, UniqueConstraint, CheckConstraint
+from sqlalchemy import Column, String, Integer, DateTime, Time, Boolean, ForeignKey, UniqueConstraint, CheckConstraint, Table
 from sqlalchemy.dialects.postgresql import UUID, ENUM
 from sqlalchemy.orm import declarative_base, relationship
 import uuid
 
 Base = declarative_base()
+
+
+# --- Tabla pivote: roles de cada usuario (muchos a muchos) ---
+user_roles = Table(
+    "user_roles",
+    Base.metadata,
+    Column("user_id", UUID(as_uuid=True), ForeignKey("usuarios.id", ondelete="CASCADE"), primary_key=True),
+    Column("role_id", UUID(as_uuid=True), ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True),
+)
+
+
+class RoleModel(Base):
+    __tablename__ = "roles"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    nombre = Column(String(50), unique=True, nullable=False, index=True)
+    descripcion = Column(String(200), nullable=True)
+
+    usuarios = relationship("UserModel", secondary=user_roles, back_populates="roles")
+
+
+# --- Tabla pivote: municipios que atiende cada sede ---
+sede_municipios = Table(
+    "sede_municipios",
+    Base.metadata,
+    Column("sede_id", UUID(as_uuid=True), ForeignKey("sedes.id", ondelete="CASCADE"), primary_key=True),
+    Column("municipio_id", UUID(as_uuid=True), ForeignKey("municipios.id", ondelete="CASCADE"), primary_key=True),
+)
 
 
 class SedeModel(Base):
@@ -15,8 +43,18 @@ class SedeModel(Base):
     hora_cierre = Column(Time, nullable=False)
     capacidad_diaria = Column(Integer, nullable=False, default=150)
 
-    # Relación inversa
+    # Relaciones
     ordenes = relationship("OrdenMedicaModel", back_populates="sede")
+    municipios = relationship("MunicipioModel", secondary=sede_municipios, back_populates="sedes", lazy="joined")
+
+
+class MunicipioModel(Base):
+    __tablename__ = "municipios"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    nombre = Column(String(100), unique=True, nullable=False, index=True)
+
+    sedes = relationship("SedeModel", secondary=sede_municipios, back_populates="municipios")
 
 
 class PacienteModel(Base):
@@ -32,6 +70,19 @@ class PacienteModel(Base):
     fecha_nacimiento = Column(DateTime, nullable=False)
     convenio = Column(String(100), nullable=False)
     regimen = Column(String(50), nullable=False)
+    municipio_id = Column(UUID(as_uuid=True), ForeignKey("municipios.id"), nullable=True)
+
+
+class UserModel(Base):
+    __tablename__ = "usuarios"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    username = Column(String(50), unique=True, nullable=False, index=True)
+    nombre = Column(String(150), nullable=False)
+    hashed_password = Column(String(255), nullable=False)
+    activo = Column(Boolean, default=True, nullable=False)
+
+    roles = relationship("RoleModel", secondary=user_roles, back_populates="usuarios", lazy="joined")
 
 
 class OrdenMedicaModel(Base):
@@ -61,12 +112,7 @@ class OrdenMedicaModel(Base):
     sede = relationship("SedeModel", back_populates="ordenes")
 
     __table_args__ = (
-        # REGLA DE ORO 1: Evitar el Double-Booking a nivel de Base de Datos.
-        # Nadie puede agendar la misma hora exacta en la misma sede.
         UniqueConstraint('sede_id', 'fecha_cita', name='uq_sede_fecha_cita'),
-
-        # REGLA DE ORO 2: Consistencia de estados
-        # Si está autorizada, debe tener un usuario autorizador
         CheckConstraint(
             "(estado = 'AUTORIZADA' AND autorizado_por IS NOT NULL) OR (estado != 'AUTORIZADA')",
             name='chk_autorizacion_valida'

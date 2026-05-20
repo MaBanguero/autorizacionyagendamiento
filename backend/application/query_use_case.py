@@ -17,6 +17,7 @@ class ConsultaService:
         self,
         estado=None,
         sede_id=None,
+        con_cita=None,
         documento_generado=None,
         limit=50,
         offset=0
@@ -24,6 +25,7 @@ class ConsultaService:
         return self.orden_repo.listar_ordenes(
             estado=estado,
             sede_id=sede_id,
+            con_cita=con_cita,
             documento_generado=documento_generado,
             limit=limit,
             offset=offset

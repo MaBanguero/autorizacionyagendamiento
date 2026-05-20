@@ -56,3 +56,44 @@ class AgendamientoService:
             raise
 
         return orden
+
+    def cancelar_cita(self, orden_id: str):
+        """Cancela la cita de una orden, liberando el slot y dejándola como AUTORIZADA sin cita."""
+        orden = self.orden_repo.obtener_por_id(orden_id)
+
+        if not orden.fecha_cita:
+            raise ValueError("Esta orden no tiene una cita programada.")
+
+        # Liberar el slot
+        orden.sede_id = None
+        orden.fecha_cita = None
+
+        try:
+            self.orden_repo.guardar(orden)
+        except Exception as e:
+            raise
+
+        return orden
+
+    def reagendar_cita(self, orden_id: str, nueva_sede_id: str, nueva_fecha_hora: datetime):
+        """Cambia la fecha/hora/sede de una cita ya agendada."""
+        orden = self.orden_repo.obtener_por_id(orden_id)
+
+        if not orden.fecha_cita:
+            raise ValueError("Esta orden no tiene una cita programada para reagendar.")
+
+        # Validar reglas de negocio con los nuevos datos
+        self._validar_reglas_negocio(nueva_sede_id, nueva_fecha_hora)
+
+        orden.sede_id = nueva_sede_id
+        orden.fecha_cita = nueva_fecha_hora
+
+        try:
+            self.orden_repo.guardar(orden)
+        except Exception as e:
+            mensaje = str(e)
+            if "uq_sede_fecha_cita" in mensaje or "duplicate key" in mensaje:
+                raise ValueError("Este horario ya fue reservado por otro usuario.")
+            raise
+
+        return orden

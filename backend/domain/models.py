@@ -20,6 +20,7 @@ class Paciente(BaseModel):
     fecha_nacimiento: date
     convenio: str
     regimen: str
+    municipio_id: Optional[str] = None
 
 
 class Sede(BaseModel):
