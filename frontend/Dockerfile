@@ -8,12 +8,15 @@ RUN npm install
 
 COPY . .
 
-ENV VITE_API_URL=http://localhost:8000
+ARG VITE_API_URL=
+ENV VITE_API_URL=${VITE_API_URL}
 
 RUN npm run build
 
 
 FROM nginx:alpine
+
+RUN apk add --no-cache inetutils-tools
 
 COPY --from=build /app/dist /usr/share/nginx/html
 
