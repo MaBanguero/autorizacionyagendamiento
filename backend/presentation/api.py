@@ -1,6 +1,6 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, Query
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import os
 from pydantic import BaseModel
@@ -18,9 +18,52 @@ from core.dependencies import (
 )
 from infrastructure.auth_service import hash_password, verify_password, create_token, decode_token, tiene_cualquier_rol
 from infrastructure.database.models import UserModel, RoleModel, SedeModel, MunicipioModel, sede_municipios
+from infrastructure.database.config import SessionLocal
 from sqlalchemy.orm import Session
+from contextlib import asynccontextmanager
 
-app = FastAPI(title="Motor de Agendamiento y Autorizaciones")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    ROLES_POR_DEFECTO = {
+        "super_usuario": "Acceso total al sistema: gestion de usuarios, sedes, roles y configuracion",
+        "ordenar_citas": "Creacion de ordenes medicas (ingreso de pacientes y estudios)",
+        "agendar_citas": "Agendamiento, cancelacion y reagendamiento de citas",
+    }
+    db = SessionLocal()
+    try:
+        for nombre, descripcion in ROLES_POR_DEFECTO.items():
+            existe = db.query(RoleModel).filter(RoleModel.nombre == nombre).first()
+            if not existe:
+                db.add(RoleModel(nombre=nombre, descripcion=descripcion))
+                print(f"  ✓ Rol creado: {nombre}")
+        db.commit()
+    except Exception as e:
+        print(f"  ⚠ Error al seedear roles: {e}")
+        db.rollback()
+    finally:
+        db.close()
+    yield
+
+
+app = FastAPI(title="Motor de Agendamiento y Autorizaciones", lifespan=lifespan)
+
+# Middleware que remueve el prefijo del gateway (/api/v1/authorization-and-scheduling)
+# y restaura /api interno que las rutas internas esperan
+@app.middleware("http")
+async def strip_gateway_prefix(request: Request, call_next):
+    path = request.url.path
+    prefix = "/api/v1/authorization-and-scheduling"
+    if path.startswith(prefix):
+        rest = path[len(prefix):]
+        if not rest.startswith("/api"):
+            rest = "/api" + rest
+        new_path = rest or "/"
+        request.scope["path"] = new_path
+        request.scope["root_path"] = prefix
+    response = await call_next(request)
+    return response
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
