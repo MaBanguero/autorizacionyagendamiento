@@ -1,17 +1,14 @@
 import { useEffect, useState } from "react";
 import api from "../../../api/client";
-import { UserPlus, Shield, Key, ToggleLeft, ToggleRight } from "lucide-react";
-
-const ROLES_DISPONIBLES = [
-  { nombre: "ordenar_citas", label: "Ordenar citas" },
-  { nombre: "agendar_citas", label: "Agendar citas" },
-  { nombre: "super_usuario", label: "Super usuario" },
-];
+import { UserPlus, Shield, Key, ToggleLeft, ToggleRight, Plus } from "lucide-react";
 
 export default function UsersPage() {
   const [usuarios, setUsuarios] = useState([]);
+  const [rolesDisponibles, setRolesDisponibles] = useState([]);
   const [mostrarForm, setMostrarForm] = useState(false);
+  const [mostrarFormRol, setMostrarFormRol] = useState(false);
   const [form, setForm] = useState({ username: "", password: "", nombre: "", roles: [] });
+  const [formRol, setFormRol] = useState({ nombre: "", descripcion: "" });
   const [editandoId, setEditandoId] = useState(null);
   const [mensaje, setMensaje] = useState("");
   const [error, setError] = useState("");
@@ -23,8 +20,16 @@ export default function UsersPage() {
       .catch(() => setError("No se pudieron cargar los usuarios"));
   };
 
+  const cargarRoles = () => {
+    api
+      .get("/api/roles")
+      .then((res) => setRolesDisponibles(res.data))
+      .catch(() => {});
+  };
+
   useEffect(() => {
     cargarUsuarios();
+    cargarRoles();
   }, []);
 
   const resetForm = () => {
@@ -33,10 +38,10 @@ export default function UsersPage() {
     setMostrarForm(false);
   };
 
-  const toggleRol = (rol) => {
+  const toggleRol = (rolNombre) => {
     setForm((prev) => ({
       ...prev,
-      roles: prev.roles.includes(rol) ? prev.roles.filter((r) => r !== rol) : [...prev.roles, rol],
+      roles: prev.roles.includes(rolNombre) ? prev.roles.filter((r) => r !== rolNombre) : [...prev.roles, rolNombre],
     }));
   };
 
@@ -125,10 +130,11 @@ export default function UsersPage() {
               <div className="field full">
                 <label>Roles</label>
                 <div className="roles-picker">
-                  {ROLES_DISPONIBLES.map((r) => (
+                  {rolesDisponibles.length === 0 && <span style={{ color: '#94a3b8', fontSize: 13 }}>No hay roles disponibles</span>}
+                  {rolesDisponibles.map((r) => (
                     <label key={r.nombre} className={`role-chip ${form.roles.includes(r.nombre) ? "active" : ""}`}>
                       <input type="checkbox" checked={form.roles.includes(r.nombre)} onChange={() => toggleRol(r.nombre)} />
-                      {r.label}
+                      {r.descripcion || r.nombre}
                     </label>
                   ))}
                 </div>
@@ -165,7 +171,7 @@ export default function UsersPage() {
                   {editandoId === u.id ? (
                     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                       <div className="roles-picker" style={{ marginBottom: 6 }}>
-                        {ROLES_DISPONIBLES.map((r) => (
+                        {rolesDisponibles.map((r) => (
                           <label key={r.nombre} className={`role-chip ${(form.roles || u.roles).includes(r.nombre) ? "active" : ""}`}
                             onClick={() => {
                               const nuevos = (form.roles || u.roles).includes(r.nombre)
@@ -174,7 +180,7 @@ export default function UsersPage() {
                               setForm({ ...form, roles: nuevos });
                             }}
                           >
-                            {r.label}
+                            {r.descripcion || r.nombre}
                           </label>
                         ))}
                       </div>
@@ -213,6 +219,78 @@ export default function UsersPage() {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Gestión de Roles */}
+      <div style={{ marginTop: 32 }}>
+        <div className="header" style={{ marginBottom: 12 }}>
+          <h2 className="title" style={{ fontSize: 18 }}>Roles disponibles</h2>
+          <button className="btn btn-soft" onClick={() => setMostrarFormRol(!mostrarFormRol)}>
+            <Plus size={16} />
+            {mostrarFormRol ? "Cancelar" : "Nuevo rol"}
+          </button>
+        </div>
+
+        {mostrarFormRol && (
+          <div className="card" style={{ marginBottom: 16 }}>
+            <h4 style={{ marginTop: 0 }}>Crear nuevo rol</h4>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              setError("");
+              setMensaje("");
+              if (!formRol.nombre.trim()) return setError("El nombre del rol es obligatorio");
+              try {
+                await api.post("/api/roles", formRol);
+                setMensaje(`Rol "${formRol.nombre}" creado correctamente`);
+                setFormRol({ nombre: "", descripcion: "" });
+                setMostrarFormRol(false);
+                cargarRoles();
+              } catch (err) {
+                setError(err.response?.data?.detail || "Error al crear rol");
+              }
+            }}>
+              <div className="form-grid" style={{ gridTemplateColumns: "1fr 2fr" }}>
+                <div className="field">
+                  <label>Nombre del rol</label>
+                  <input className="input" type="text" value={formRol.nombre}
+                    onChange={(e) => setFormRol({ ...formRol, nombre: e.target.value })}
+                    placeholder="Ej: ver_reportes" />
+                </div>
+                <div className="field">
+                  <label>Descripción</label>
+                  <input className="input" type="text" value={formRol.descripcion}
+                    onChange={(e) => setFormRol({ ...formRol, descripcion: e.target.value })}
+                    placeholder="Ej: Visualización de reportes" />
+                </div>
+              </div>
+              <button type="submit" className="btn btn-primary" style={{ marginTop: 12 }}>
+                Crear rol
+              </button>
+            </form>
+          </div>
+        )}
+
+        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+          <table>
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Descripción</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rolesDisponibles.length === 0 && (
+                <tr><td colSpan={2} style={{ textAlign: "center", padding: 32, color: "#94a3b8" }}>No hay roles creados</td></tr>
+              )}
+              {rolesDisponibles.map((r) => (
+                <tr key={r.id}>
+                  <td><span className="badge badge-muted">{r.nombre}</span></td>
+                  <td>{r.descripcion || "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </>
   );
