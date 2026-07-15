@@ -19,5 +19,8 @@ python crear_tablas.py
 echo "Cargando datos de prueba..."
 python seed_data.py
 
+echo "Migrando convenios..."
+python migrate_convenios.py
+
 echo "Iniciando backend..."
 exec python -m uvicorn presentation.api:app --host 0.0.0.0 --port 8000

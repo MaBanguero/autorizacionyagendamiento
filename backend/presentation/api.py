@@ -645,23 +645,33 @@ def listar_convenios(
     from infrastructure.database.models import ConvenioModel, PacienteModel
     from sqlalchemy import func
 
-    query = db.query(
-        ConvenioModel,
-        func.count(PacienteModel.id).label("total")
-    ).outerjoin(PacienteModel, PacienteModel.convenio_id == ConvenioModel.id)
+    query = db.query(ConvenioModel)
 
     if q:
         query = query.filter(ConvenioModel.nombre.ilike(f"%{q.strip()}%"))
 
-    query = query.group_by(ConvenioModel.id)
-
     if top:
-        # Más usados primero
-        query = query.order_by(func.count(PacienteModel.id).desc())
+        query = query.order_by(ConvenioModel.nombre.asc())
     else:
         query = query.order_by(ConvenioModel.nombre.asc())
 
-    resultados = query.limit(50 if top else None).all()
+    convenios = query.limit(50 if top else 200).all()
+
+    # Intentar contar pacientes vinculados (fallback si no existe convenio_id)
+    from sqlalchemy import text
+    try:
+        totales = dict(
+            db.query(
+                ConvenioModel.id,
+                func.count(PacienteModel.id)
+            )
+            .outerjoin(PacienteModel, PacienteModel.convenio_id == ConvenioModel.id)
+            .group_by(ConvenioModel.id)
+            .all()
+        )
+    except Exception:
+        # Columna convenio_id no existe aún (migración pendiente)
+        totales = {}
 
     return [
         {
@@ -669,9 +679,9 @@ def listar_convenios(
             "nombre": c.nombre,
             "regimen": c.regimen or "",
             "activo": c.activo,
-            "total_pacientes": total,
+            "total_pacientes": totales.get(c.id, 0),
         }
-        for c, total in resultados
+        for c in convenios
     ]
 
 
