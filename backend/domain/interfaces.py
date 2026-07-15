@@ -76,6 +76,20 @@ class IOrdenRepository(ABC):
         pass
 
 
+class IPacienteRepository(ABC):
+    @abstractmethod
+    def buscar_por_documento(self, numero_documento: str):
+        pass
+
+    @abstractmethod
+    def buscar_por_nombre(self, query: str, limit: int = 20):
+        pass
+
+    @abstractmethod
+    def crear_paciente(self, paciente_data: dict):
+        pass
+
+
 class IPDFService(ABC):
     @abstractmethod
     def generar_pdf_firmado(self, orden: OrdenMedica) -> str:

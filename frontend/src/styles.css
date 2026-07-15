@@ -186,6 +186,9 @@ textarea.input { resize: vertical; min-height: 80px; }
 .btn-soft { background: #e2e8f0; color: #0f172a; }
 .btn-danger { background: #dc2626; color: white; }
 .btn-success { background: #16a34a; color: white; }
+.btn-outline { background: transparent; border: 1px solid #e2e8f0; color: #0f172a; }
+.btn-outline:hover { border-color: #2563eb; color: #2563eb; }
+.btn-sm { padding: 6px 12px; font-size: 13px; border-radius: 8px; }
 .btn:disabled { opacity: .55; cursor: not-allowed; }
 
 /* ---- Table ---- */
@@ -234,6 +237,7 @@ th { color: #475569; font-size: 13px; background: #f8fafc; }
   border: 1px solid #bfdbfe;
 }
 .alert-error { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
+.alert-success { background: #f0fdf4; color: #166534; border-color: #bbf7d0; }
 
 /* ---- Slots ---- */
 .slots {
@@ -269,6 +273,92 @@ th { color: #475569; font-size: 13px; background: #f8fafc; }
   height: 100vh;
   color: #64748b;
   font-size: 18px;
+}
+
+/* ---- Patient Search ---- */
+.paciente-search { position: relative; }
+.search-bar { display: flex; gap: 8px; align-items: center; }
+.search-bar .input { flex: 1; }
+.search-spinner { color: #94a3b8; font-size: 18px; padding: 0 4px; }
+.search-helper { color: #94a3b8; font-size: 13px; margin: 8px 0 0; }
+.search-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+  max-height: 280px;
+  overflow-y: auto;
+  margin-top: 4px;
+}
+.search-results--empty {
+  padding: 16px;
+  text-align: center;
+  color: #64748b;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+.search-result-item {
+  padding: 12px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.search-result-item:last-child { border-bottom: 0; }
+.search-result-item:hover { background: #f8fafc; }
+.search-result-doc { font-size: 12px; color: #2563eb; font-weight: 600; }
+.search-result-info { font-size: 12px; color: #94a3b8; }
+.paciente-seleccionado-badge {
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  font-size: 14px;
+  color: #166534;
+}
+
+/* ---- Modal ---- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+.modal {
+  background: white;
+  border-radius: 20px;
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 25px 50px rgba(0,0,0,0.2);
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 0;
+}
+.modal-header h3 { margin: 0; font-size: 18px; }
+.modal-body { padding: 16px 24px 24px; }
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
 }
 
 /* ==== LOGIN PAGE ==== */

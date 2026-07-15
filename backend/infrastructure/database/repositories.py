@@ -303,3 +303,67 @@ class PostgresOrdenRepository(IOrdenRepository):
             raise ValueError(f"Orden con número {numero_orden} no encontrada.")
 
         return self._to_domain(orden_db)
+
+
+class PostgresPacienteRepository:
+    def __init__(self, db_session: Session):
+        self.db = db_session
+
+    def buscar_por_documento(self, numero_documento: str):
+        paciente = (
+            self.db.query(PacienteModel)
+            .filter(PacienteModel.numero_documento == numero_documento.strip())
+            .first()
+        )
+        if not paciente:
+            return None
+        return self._to_dict(paciente)
+
+    def buscar_por_nombre(self, query: str, limit: int = 20):
+        termino = f"%{query.strip()}%"
+        pacientes = (
+            self.db.query(PacienteModel)
+            .filter(PacienteModel.nombre.ilike(termino))
+            .order_by(PacienteModel.nombre.asc())
+            .limit(limit)
+            .all()
+        )
+        return [self._to_dict(p) for p in pacientes]
+
+    def crear_paciente(self, data: dict):
+        from datetime import datetime as dt
+
+        paciente = PacienteModel(
+            tipo_documento=data["tipo_documento"],
+            numero_documento=data["numero_documento"].strip(),
+            nombre=data["nombre"].strip(),
+            sexo=data["sexo"],
+            direccion=data.get("direccion", ""),
+            telefono=data.get("telefono", ""),
+            fecha_nacimiento=data["fecha_nacimiento"],
+            convenio=data["convenio"],
+            regimen=data["regimen"],
+        )
+        self.db.add(paciente)
+        self.db.commit()
+        self.db.refresh(paciente)
+        return self._to_dict(paciente)
+
+    def _to_dict(self, model):
+        from datetime import datetime
+        fn = model.fecha_nacimiento
+        if isinstance(fn, datetime):
+            fn = fn.date()
+        return {
+            "id": str(model.id),
+            "tipo_documento": model.tipo_documento,
+            "numero_documento": model.numero_documento,
+            "nombre": model.nombre,
+            "sexo": model.sexo,
+            "direccion": model.direccion,
+            "telefono": model.telefono,
+            "fecha_nacimiento": fn.isoformat() if fn else None,
+            "convenio": model.convenio,
+            "regimen": model.regimen,
+            "municipio_id": str(model.municipio_id) if model.municipio_id else None,
+        }

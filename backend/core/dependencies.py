@@ -3,10 +3,10 @@ from sqlalchemy.orm import Session
 from core.database import get_db
 
 # Importamos Interfaces (Contratos)
-from domain.interfaces import IOrdenRepository, ISedeRepository, IPDFService
+from domain.interfaces import IOrdenRepository, ISedeRepository, IPDFService, IPacienteRepository
 
 # Importamos Implementaciones Concretas (Infraestructura)
-from infrastructure.database.repositories import PostgresOrdenRepository, PostgresSedeRepository
+from infrastructure.database.repositories import PostgresOrdenRepository, PostgresSedeRepository, PostgresPacienteRepository
 from infrastructure.pdf_service import PDFGeneratorService # El que creamos al inicio
 
 
@@ -64,6 +64,10 @@ def get_documento_service(
 ) -> DocumentoService:
     """Construye el servicio de documentos uniendo BD y motor PDF"""
     return DocumentoService(orden_repo, pdf_service)
+
+def get_paciente_repository(db: Session = Depends(get_db)):
+    return PostgresPacienteRepository(db)
+
 
 def get_consulta_service(
     orden_repo: IOrdenRepository = Depends(get_orden_repository),

@@ -5,7 +5,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import os
 from pydantic import BaseModel
 from datetime import datetime, date
-from typing import Optional
+from typing import Optional, List
 from domain.models import OrdenMedica
 from core.dependencies import (
     get_agendamiento_service,
@@ -14,6 +14,7 @@ from core.dependencies import (
     get_consulta_service,
     get_orden_service,
     get_sede_repository,
+    get_paciente_repository,
     get_db
 )
 from infrastructure.auth_service import hash_password, verify_password, create_token, decode_token, tiene_cualquier_rol
@@ -109,6 +110,18 @@ class CambiarPasswordRequest(BaseModel):
 class ReagendarRequest(BaseModel):
     sede_id: str
     fecha_hora: datetime
+
+class CrearPacienteRequest(BaseModel):
+    tipo_documento: str = "CC"
+    numero_documento: str
+    nombre: str
+    sexo: str = "M"
+    direccion: str = ""
+    telefono: str = ""
+    fecha_nacimiento: date
+    convenio: str
+    regimen: str = "Contributivo"
+
 
 class CrearSedeRequest(BaseModel):
     nombre: str
@@ -572,6 +585,44 @@ def disponibilidad_sede(
         return consulta_service.disponibilidad_sede_dia(sede_id, fecha)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+# --- Paciente Endpoints ---
+
+@app.get("/api/pacientes/buscar")
+def buscar_pacientes(
+    q: str = Query(default="", min_length=1),
+    tipo: str = Query(default="documento"),
+    paciente_repo = Depends(get_paciente_repository),
+    user: dict = Depends(get_current_user)
+):
+    """Busca pacientes por número de documento o por nombre."""
+    if tipo == "documento":
+        resultado = paciente_repo.buscar_por_documento(q)
+        if resultado:
+            return [resultado]
+        return []
+    else:
+        return paciente_repo.buscar_por_nombre(q, limit=20)
+
+
+@app.post("/api/pacientes")
+def crear_paciente(
+    req: CrearPacienteRequest,
+    paciente_repo = Depends(get_paciente_repository),
+    user: dict = Depends(get_current_user)
+):
+    """Crea un nuevo paciente en el sistema."""
+    # Verificar si ya existe
+    existe = paciente_repo.buscar_por_documento(req.numero_documento)
+    if existe:
+        raise HTTPException(status_code=409, detail=f"Ya existe un paciente con documento {req.numero_documento}")
+
+    data = req.model_dump()
+    # fecha_nacimiento viene como date, convertir a datetime para el modelo
+    data["fecha_nacimiento"] = datetime.combine(data["fecha_nacimiento"], datetime.min.time())
+    paciente = paciente_repo.crear_paciente(data)
+    return paciente
+
 
 @app.get("/api/ordenes")
 def listar_ordenes(

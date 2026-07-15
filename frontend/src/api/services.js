@@ -4,6 +4,13 @@ export const dashboardService = {
   getResumen: async () => (await api.get('/api/dashboard/resumen')).data,
 };
 
+export const pacienteService = {
+  buscar: async (q, tipo = 'documento') =>
+    (await api.get('/api/pacientes/buscar', { params: { q, tipo } })).data,
+  crear: async (data) => (await api.post('/api/pacientes', data)).data,
+};
+
+
 export const sedeService = {
   list: async () => (await api.get('/api/sedes')).data,
   get: async (sedeId) => (await api.get(`/api/sedes/${sedeId}`)).data,
