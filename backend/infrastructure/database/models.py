@@ -105,6 +105,33 @@ class ProcedimientoModel(Base):
     activo = Column(Boolean, default=True, nullable=False)
 
 
+class ProcesoPacienteModel(Base):
+    __tablename__ = "procesos_paciente"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    paciente_id = Column(UUID(as_uuid=True), ForeignKey("pacientes.id"), nullable=False)
+    orden_id = Column(UUID(as_uuid=True), ForeignKey("ordenes_medicas.id"), nullable=True)
+    procedimiento_id = Column(UUID(as_uuid=True), ForeignKey("procedimientos.id"), nullable=True)
+
+    # Tipo segun RIAS 3280
+    tipo = Column(String(50), nullable=False, default="PROCEDIMIENTO")  # CONSULTA, PROMOCION, PREVENCION, DIAGNOSTICO, TRATAMIENTO, SEGUIMIENTO
+    codigo = Column(String(20), nullable=True)  # CUPS o codigo interno
+    nombre = Column(String(300), nullable=False)
+    descripcion = Column(String(500), nullable=True)
+    resultado = Column(String(500), nullable=True)
+    profesional = Column(String(150), nullable=True)
+
+    # Fechas
+    fecha_proceso = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, nullable=False)
+    updated_at = Column(DateTime, nullable=False)
+
+    # Relaciones
+    paciente = relationship("PacienteModel")
+    orden = relationship("OrdenMedicaModel")
+    procedimiento = relationship("ProcedimientoModel")
+
+
 class OrdenMedicaModel(Base):
     __tablename__ = "ordenes_medicas"
 

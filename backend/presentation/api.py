@@ -1050,3 +1050,123 @@ def listar_procedimientos(
         }
         for p in resultados
     ]
+
+
+# --- Procesos del Paciente (RIAS 3280) ---
+
+class CrearProcesoRequest(BaseModel):
+    tipo: str = "PROCEDIMIENTO"
+    codigo: Optional[str] = None
+    nombre: str
+    descripcion: Optional[str] = None
+    resultado: Optional[str] = None
+    profesional: Optional[str] = None
+    fecha_proceso: datetime
+    orden_id: Optional[str] = None
+    procedimiento_id: Optional[str] = None
+
+
+@app.get("/api/pacientes/{paciente_id}/procesos")
+def listar_procesos(
+    paciente_id: str,
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user)
+):
+    """Obtiene el historial de procesos de un paciente."""
+    from infrastructure.database.models import ProcesoPacienteModel
+    total = db.query(ProcesoPacienteModel).filter(
+        ProcesoPacienteModel.paciente_id == paciente_id
+    ).count()
+    procesos = (
+        db.query(ProcesoPacienteModel)
+        .filter(ProcesoPacienteModel.paciente_id == paciente_id)
+        .order_by(ProcesoPacienteModel.fecha_proceso.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+    return {
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "procesos": [
+            {
+                "id": str(p.id),
+                "tipo": p.tipo,
+                "codigo": p.codigo or "",
+                "nombre": p.nombre,
+                "descripcion": p.descripcion or "",
+                "resultado": p.resultado or "",
+                "profesional": p.profesional or "",
+                "fecha_proceso": p.fecha_proceso.isoformat(),
+                "orden_id": str(p.orden_id) if p.orden_id else None,
+                "procedimiento_id": str(p.procedimiento_id) if p.procedimiento_id else None,
+                "created_at": p.created_at.isoformat(),
+            }
+            for p in procesos
+        ],
+    }
+
+
+@app.post("/api/pacientes/{paciente_id}/procesos")
+def crear_proceso(
+    paciente_id: str,
+    req: CrearProcesoRequest,
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user)
+):
+    """Registra un nuevo proceso para el paciente."""
+    from infrastructure.database.models import ProcesoPacienteModel
+    from datetime import datetime as dt
+    now = dt.now()
+    proceso = ProcesoPacienteModel(
+        paciente_id=paciente_id,
+        tipo=req.tipo.upper(),
+        codigo=req.codigo.strip() if req.codigo else None,
+        nombre=req.nombre.strip(),
+        descripcion=req.descripcion.strip() if req.descripcion else None,
+        resultado=req.resultado.strip() if req.resultado else None,
+        profesional=req.profesional.strip() if req.profesional else None,
+        fecha_proceso=req.fecha_proceso,
+        orden_id=req.orden_id,
+        procedimiento_id=req.procedimiento_id,
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(proceso)
+    db.commit()
+    db.refresh(proceso)
+    return {"mensaje": "Proceso registrado correctamente", "id": str(proceso.id)}
+
+
+@app.get("/api/pacientes/{paciente_id}/resumen")
+def resumen_paciente(
+    paciente_id: str,
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user)
+):
+    """Resumen de atencion del paciente (RIAS 3280)."""
+    from infrastructure.database.models import ProcesoPacienteModel, OrdenMedicaModel
+    from sqlalchemy import func
+
+    # Conteo por tipo de proceso
+    tipos = db.query(
+        ProcesoPacienteModel.tipo,
+        func.count(ProcesoPacienteModel.id)
+    ).filter(
+        ProcesoPacienteModel.paciente_id == paciente_id
+    ).group_by(ProcesoPacienteModel.tipo).all()
+
+    # Total ordenes
+    total_ordenes = db.query(OrdenMedicaModel).filter(
+        OrdenMedicaModel.paciente_id == paciente_id
+    ).count()
+
+    return {
+        "paciente_id": paciente_id,
+        "total_procesos": sum(c for _, c in tipos),
+        "total_ordenes": total_ordenes,
+        "procesos_por_tipo": {t: c for t, c in tipos},
+    }

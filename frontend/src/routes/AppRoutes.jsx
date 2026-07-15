@@ -12,6 +12,7 @@ import UsersPage from "../modules/users/pages/UsersPage";
 import UbicacionesPage from "../modules/ubicaciones/pages/UbicacionesPage";
 import PacientesPage from "../modules/pacientes/pages/PacientesPage";
 import ImportPacientesPage from "../modules/pacientes/pages/ImportPacientesPage";
+import PacienteProcesosPage from "../modules/pacientes/pages/PacienteProcesosPage";
 import ConveniosPage from "../modules/convenios/pages/ConveniosPage";
 
 export default function AppRoutes() {
@@ -44,6 +45,7 @@ export default function AppRoutes() {
             <ImportPacientesPage />
           </ProtectedRoute>
         } />
+        <Route path="pacientes/:pacienteId/procesos" element={<PacienteProcesosPage />} />
         <Route path="convenios" element={
           <ProtectedRoute roles={["super_usuario"]}>
             <ConveniosPage />

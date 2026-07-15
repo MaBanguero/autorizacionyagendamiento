@@ -120,6 +120,7 @@ export default function PacientesPage() {
                 <th>Convenio</th>
                 <th>Régimen</th>
                 <th>Teléfono</th>
+                <th>Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -148,6 +149,11 @@ export default function PacientesPage() {
                     </span>
                   </td>
                   <td>{p.telefono}</td>
+                  <td>
+                    <Link to={`/pacientes/${p.id}/procesos`} className="btn btn-soft btn-sm">
+                      📋 Procesos
+                    </Link>
+                  </td>
                 </tr>
               ))}
             </tbody>
