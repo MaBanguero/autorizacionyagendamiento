@@ -476,6 +476,46 @@ class PostgresPacienteRepository:
             "detalle_errores": errores[:20],
         }
 
+    def buscar_similares(self, nombre: str, numero_documento: str = "", limit: int = 10):
+        """
+        Busca pacientes con nombres similares (posibles duplicados por misspelling).
+        Excluye el documento exacto si se proporciona.
+        """
+        from domain.utils import normalizar_nombre, son_nombres_similares
+
+        nombre_normalizado = normalizar_nombre(nombre)
+        if not nombre_normalizado or len(nombre_normalizado) < 5:
+            return []
+
+        # Obtener pacientes que compartan al menos una palabra relevante
+        palabras = [p for p in nombre_normalizado.split() if len(p) > 2]
+        if not palabras:
+            return []
+
+        # Tomar las primeras 2-3 palabras más significativas (apellidos)
+        palabras_busqueda = palabras[-3:] if len(palabras) > 3 else palabras
+
+        from sqlalchemy import or_
+        filtros = [PacienteModel.nombre.ilike(f"%{p}%") for p in palabras_busqueda]
+        candidatos = (
+            self.db.query(PacienteModel)
+            .filter(or_(*filtros))
+            .limit(100)
+            .all()
+        )
+
+        # Filtrar por similitud real y excluir el documento exacto
+        resultados = []
+        for c in candidatos:
+            if numero_documento and c.numero_documento == numero_documento:
+                continue
+            if son_nombres_similares(c.nombre, nombre):
+                resultados.append(self._to_dict(c))
+                if len(resultados) >= limit:
+                    break
+
+        return resultados
+
     def listar_convenios(self, query: str = ""):
         q = self.db.query(PacienteModel.convenio).distinct()
         if query:

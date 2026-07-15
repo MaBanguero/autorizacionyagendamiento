@@ -602,6 +602,20 @@ def disponibilidad_sede(
 
 # --- Paciente Endpoints ---
 
+@app.get("/api/pacientes/similares")
+def buscar_pacientes_similares(
+    nombre: str = Query(default="", min_length=3),
+    documento: str = Query(default=""),
+    paciente_repo = Depends(get_paciente_repository),
+    user: dict = Depends(get_current_user)
+):
+    """
+    Busca pacientes con nombres similares para detectar posibles duplicados
+    por misspelling. Retorna lista vacía si no encuentra coincidencias.
+    """
+    return paciente_repo.buscar_similares(nombre, numero_documento=documento, limit=10)
+
+
 @app.get("/api/pacientes/convenios")
 def listar_convenios(
     q: str = Query(default=""),

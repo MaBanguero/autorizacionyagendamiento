@@ -20,6 +20,8 @@ export const pacienteService = {
       timeout: 120000,
     })).data;
   },
+  similares: async (nombre, documento = '') =>
+    (await api.get('/api/pacientes/similares', { params: { nombre, documento } })).data,
 };
 
 

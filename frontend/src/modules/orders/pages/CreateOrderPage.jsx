@@ -53,9 +53,32 @@ export default function CreateOrderPage() {
   const [newPaciente, setNewPaciente] = useState(initialNewPaciente);
   const [creatingPaciente, setCreatingPaciente] = useState(false);
 
+  // Similares (posibles duplicados por misspelling)
+  const [similares, setSimilares] = useState([]);
+  const [similaresLoading, setSimilaresLoading] = useState(false);
+
   const update = (field, value) => setForm({ ...form, [field]: value });
   const updatePaciente = (field, value) =>
     setForm({ ...form, paciente: { ...form.paciente, [field]: value } });
+
+  // Buscar posibles duplicados por nombre similar
+  const checkSimilares = useCallback(async (nombre) => {
+    if (!nombre || nombre.trim().length < 5) {
+      setSimilares([]);
+      return;
+    }
+    setSimilaresLoading(true);
+    try {
+      const res = await api.get("/api/pacientes/similares", {
+        params: { nombre: nombre.trim(), documento: form.paciente.numero_documento },
+      });
+      setSimilares(res.data || []);
+    } catch {
+      setSimilares([]);
+    } finally {
+      setSimilaresLoading(false);
+    }
+  }, [form.paciente.numero_documento]);
 
   // Búsqueda con debounce
   const handleSearch = (value) => {
@@ -339,13 +362,52 @@ export default function CreateOrderPage() {
 
         <h4 className="full">Datos del paciente</h4>
 
-        <input
-          required
-          className="input"
-          placeholder="Nombre completo del paciente"
-          value={form.paciente.nombre}
-          onChange={(e) => updatePaciente("nombre", e.target.value)}
-        />
+        <div className="field full">
+          <input
+            required
+            className="input"
+            placeholder="Nombre completo del paciente"
+            value={form.paciente.nombre}
+            onChange={(e) => {
+              updatePaciente("nombre", e.target.value);
+              if (e.target.value.trim().length >= 5) {
+                setTimeout(() => checkSimilares(e.target.value), 300);
+              } else {
+                setSimilares([]);
+              }
+            }}
+            onBlur={() => {
+              if (form.paciente.nombre.trim().length >= 5 && !pacienteSeleccionado) {
+                checkSimilares(form.paciente.nombre);
+              }
+            }}
+          />
+          {similares.length > 0 && (
+            <div className="similares-warning">
+              <p className="similares-title">⚠️ Posibles duplicados encontrados:</p>
+              {similares.map((s) => (
+                <div
+                  key={s.id}
+                  className="similar-item"
+                  onClick={() => seleccionarPaciente(s)}
+                >
+                  <strong>{s.nombre}</strong>
+                  <span className="search-result-doc">
+                    {s.tipo_documento} {s.numero_documento}
+                  </span>
+                  <span className="search-result-info">{s.convenio}</span>
+                </div>
+              ))}
+              <p className="similares-hint">
+                ¿Tal vez el paciente ya existe? Haz clic en uno para
+                seleccionarlo, o ignora esta advertencia y continúa.
+              </p>
+            </div>
+          )}
+          {similaresLoading && (
+            <span className="similares-loading">Verificando duplicados...</span>
+          )}
+        </div>
         <input
           required
           className="input"

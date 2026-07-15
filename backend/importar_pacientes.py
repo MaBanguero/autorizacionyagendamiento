@@ -15,6 +15,9 @@ from sqlalchemy.orm import Session
 from core.database import SessionLocal, engine
 from core.database import DATABASE_URL as DB_URL
 
+# Normalización de nombres para evitar duplicados por misspelling
+from domain.utils import normalizar_nombre, son_nombres_similares
+
 
 # Columnas del CSV
 COL_CONVENIO_ID = "id_convenio"
@@ -124,6 +127,7 @@ def importar_pacientes(csv_path: str) -> dict:
 
                     tipo_doc = validar_tipo_documento(row.get(COL_TIPO_DOC, "CC"))
                     nombre = construir_nombre_completo(row)
+
                     sexo = validar_sexo(row.get(COL_SEXO, "O"))
                     fecha_nac = parsear_fecha(row.get(COL_FECHA_NAC, ""))
 
