@@ -94,6 +94,17 @@ class UserModel(Base):
     roles = relationship("RoleModel", secondary=user_roles, back_populates="usuarios", lazy="joined")
 
 
+class ProcedimientoModel(Base):
+    __tablename__ = "procedimientos"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    codigo = Column(String(20), unique=True, nullable=False, index=True)
+    nombre = Column(String(300), nullable=False)
+    grupo = Column(String(100), nullable=True)
+    agrupador = Column(String(100), nullable=True)
+    activo = Column(Boolean, default=True, nullable=False)
+
+
 class OrdenMedicaModel(Base):
     __tablename__ = "ordenes_medicas"
 
@@ -101,6 +112,7 @@ class OrdenMedicaModel(Base):
     numero_orden = Column(String(50), unique=True, index=True, nullable=False)
     paciente_id = Column(UUID(as_uuid=True), ForeignKey("pacientes.id"), nullable=False)
     estudio = Column(String(200), nullable=False)
+    procedimiento_id = Column(UUID(as_uuid=True), ForeignKey("procedimientos.id"), nullable=True)
 
     # Flujo de Autorización
     estado = Column(String(20), nullable=False, default="PENDIENTE")

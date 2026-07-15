@@ -1014,3 +1014,35 @@ def documentos_generados(
 ):
     ordenes = consulta_service.listar_ordenes(documento_generado=True, limit=100)
     return [{"orden_id": o.id, "numero_orden": o.numero_orden, "paciente": o.paciente.nombre, "ruta_pdf": o.ruta_pdf, "fecha_generacion": o.fecha_generacion_pdf} for o in ordenes]
+
+
+# --- Procedimientos Endpoints ---
+
+@app.get("/api/procedimientos")
+def listar_procedimientos(
+    q: str = Query(default=""),
+    limit: int = Query(default=30, ge=1, le=100),
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user)
+):
+    """Busca procedimientos por código o nombre."""
+    from infrastructure.database.models import ProcedimientoModel
+    query = db.query(ProcedimientoModel).filter(ProcedimientoModel.activo == True)
+    if q:
+        termino = f"%{q.strip()}%"
+        query = query.filter(
+            ProcedimientoModel.codigo.ilike(termino)
+            | ProcedimientoModel.nombre.ilike(termino)
+        )
+    resultados = query.order_by(ProcedimientoModel.codigo.asc()).limit(limit).all()
+    return [
+        {
+            "id": str(p.id),
+            "codigo": p.codigo,
+            "nombre": p.nombre,
+            "grupo": p.grupo or "",
+            "agrupador": p.agrupador or "",
+            "display": f"[{p.codigo}] {p.nombre}",
+        }
+        for p in resultados
+    ]

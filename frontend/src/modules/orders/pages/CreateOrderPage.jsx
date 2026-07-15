@@ -360,12 +360,15 @@ export default function CreateOrderPage() {
           value={form.numero_orden}
           onChange={(e) => update("numero_orden", e.target.value)}
         />
-        <input
-          required
-          className="input"
-          placeholder="Estudio / procedimiento"
+        <SearchableSelect
           value={form.estudio}
-          onChange={(e) => update("estudio", e.target.value)}
+          onChange={(val) => update("estudio", val)}
+          onSearch={useCallback(async (q) => {
+            const res = await api.get("/api/procedimientos", { params: { q, limit: 30 } });
+            return (res.data || []).map((p) => p.display);
+          }, [])}
+          placeholder="Buscar estudio / procedimiento (código o nombre)..."
+          className="full"
         />
 
         <h4 className="full">Datos del paciente</h4>
