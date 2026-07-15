@@ -67,12 +67,13 @@ export default function SearchableSelect({
     }, 300);
   };
 
-  // Al enfocar, si no hay opciones o el input está vacío, buscar
+  // Al enfocar, mostrar sugerencias (top convenios o buscar si hay texto)
   const handleFocus = () => {
     setOpen(true);
-    if (options.length === 0) {
+    if (inputValue) {
       buscar(inputValue);
     }
+    // Si no hay input pero hay opciones iniciales, se muestran tal cual
   };
 
   const seleccionar = (opt) => {

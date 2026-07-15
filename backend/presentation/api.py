@@ -633,35 +633,45 @@ class ActualizarConvenioRequest(BaseModel):
 @app.get("/api/convenios")
 def listar_convenios(
     q: str = Query(default=""),
+    top: int = Query(default=0, ge=0, le=50),
     db: Session = Depends(get_db),
     user: dict = Depends(get_current_user)
 ):
-    """Lista convenios con búsqueda opcional."""
-    from infrastructure.database.models import ConvenioModel
-    query = db.query(ConvenioModel)
+    """
+    Lista convenios con búsqueda opcional.
+    top=N: retorna los N más usados (por cantidad de pacientes).
+    Sin q ni top: ordenados alfabéticamente.
+    """
+    from infrastructure.database.models import ConvenioModel, PacienteModel
+    from sqlalchemy import func
+
+    query = db.query(
+        ConvenioModel,
+        func.count(PacienteModel.id).label("total")
+    ).outerjoin(PacienteModel, PacienteModel.convenio_id == ConvenioModel.id)
+
     if q:
         query = query.filter(ConvenioModel.nombre.ilike(f"%{q.strip()}%"))
-    convenios = query.order_by(ConvenioModel.nombre.asc()).all()
-    from infrastructure.database.models import PacienteModel
-    from sqlalchemy import func
-    totales = dict(
-        db.query(
-            ConvenioModel.id,
-            func.count(PacienteModel.id)
-        )
-        .outerjoin(PacienteModel, PacienteModel.convenio_id == ConvenioModel.id)
-        .group_by(ConvenioModel.id)
-        .all()
-    )
+
+    query = query.group_by(ConvenioModel.id)
+
+    if top:
+        # Más usados primero
+        query = query.order_by(func.count(PacienteModel.id).desc())
+    else:
+        query = query.order_by(ConvenioModel.nombre.asc())
+
+    resultados = query.limit(50 if top else None).all()
+
     return [
         {
             "id": str(c.id),
             "nombre": c.nombre,
             "regimen": c.regimen or "",
             "activo": c.activo,
-            "total_pacientes": totales.get(c.id, 0),
+            "total_pacientes": total,
         }
-        for c in convenios
+        for c, total in resultados
     ]
 
 

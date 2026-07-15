@@ -53,6 +53,14 @@ export default function CreateOrderPage() {
   const [newPaciente, setNewPaciente] = useState(initialNewPaciente);
   const [creatingPaciente, setCreatingPaciente] = useState(false);
 
+  // Top convenios (más usados) para sugerencias iniciales
+  const [topConvenios, setTopConvenios] = useState([]);
+  useEffect(() => {
+    api.get("/api/convenios", { params: { top: 15 } }).then((res) => {
+      setTopConvenios((res.data || []).map((c) => c.nombre));
+    }).catch(() => {});
+  }, []);
+
   // Similares (posibles duplicados por misspelling)
   const [similares, setSimilares] = useState([]);
   const [similaresLoading, setSimilaresLoading] = useState(false);
@@ -463,6 +471,7 @@ export default function CreateOrderPage() {
           value={form.paciente.convenio}
           onChange={(val) => updatePaciente("convenio", val)}
           onSearch={buscarConvenios}
+          initialOptions={topConvenios}
           placeholder="Buscar convenio / EPS..."
           className="full"
         />
@@ -581,6 +590,7 @@ export default function CreateOrderPage() {
                 value={newPaciente.convenio}
                 onChange={(val) => setNewPaciente({ ...newPaciente, convenio: val })}
                 onSearch={buscarConvenios}
+                initialOptions={topConvenios}
                 placeholder="Buscar convenio / EPS..."
                 className="full"
               />
