@@ -657,20 +657,18 @@ def listar_convenios(
 
     convenios = query.limit(50 if top else 200).all()
 
-    # Intentar contar pacientes vinculados (fallback si no existe convenio_id)
-    from sqlalchemy import text
+    # Intentar contar pacientes vinculados (vía raw SQL, tolerante a columna faltante)
+    totales = {}
     try:
-        totales = dict(
-            db.query(
-                ConvenioModel.id,
-                func.count(PacienteModel.id)
-            )
-            .outerjoin(PacienteModel, PacienteModel.convenio_id == ConvenioModel.id)
-            .group_by(ConvenioModel.id)
-            .all()
-        )
+        from sqlalchemy import text as sa_text
+        rows = db.execute(sa_text("""
+            SELECT c.id, COUNT(p.id)
+            FROM convenios c
+            LEFT JOIN pacientes p ON p.convenio = c.nombre
+            GROUP BY c.id
+        """)).fetchall()
+        totales = {str(r[0]): r[1] for r in rows}
     except Exception:
-        # Columna convenio_id no existe aún (migración pendiente)
         totales = {}
 
     return [
@@ -735,11 +733,15 @@ def eliminar_convenio(
 ):
     from infrastructure.database.models import ConvenioModel
     from sqlalchemy import text
-    # Verificar pacientes vinculados
-    vinculados = db.execute(
-        text("SELECT COUNT(*) FROM pacientes WHERE convenio_id = :cid"),
-        {"cid": convenio_id}
-    ).scalar()
+    # Verificar pacientes vinculados (por nombre del convenio, tolerante a columna faltante)
+    from infrastructure.database.models import ConvenioModel as CM
+    conv = db.query(CM).filter(CM.id == convenio_id).first()
+    vinculados = 0
+    if conv:
+        vinculados = db.execute(
+            text("SELECT COUNT(*) FROM pacientes WHERE convenio = :nom"),
+            {"nom": conv.nombre}
+        ).scalar() or 0
     if vinculados and vinculados > 0:
         raise HTTPException(
             status_code=400,

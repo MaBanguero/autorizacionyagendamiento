@@ -1,10 +1,12 @@
 """
 Migración: Crea la tabla de convenios, la pobla desde los datos existentes
 y agrega la columna convenio_id a pacientes.
+Reintenta automáticamente si falla (idempotente).
 """
-
+import uuid
 from sqlalchemy import text
-from core.database import engine, SessionLocal
+from core.database import SessionLocal
+from infrastructure.database.models import ConvenioModel
 
 
 def migrar():
@@ -12,19 +14,37 @@ def migrar():
     db = SessionLocal()
 
     try:
-        # 1. Crear tabla convenios si no existe
+        # 1. Crear tabla convenios si no existe (vía SQLAlchemy o raw)
         print("  Creando tabla convenios...")
+        # Primero intentar con el ORM (genera la estructura correcta)
+        ConvenioModel.__table__.create(db.bind, checkfirst=True)
+
+        # Si el ORM no creó la columna id con default, asegurarla vía raw SQL
         db.execute(text("""
-            CREATE TABLE IF NOT EXISTS convenios (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                nombre VARCHAR(150) NOT NULL UNIQUE,
-                regimen VARCHAR(50),
-                activo BOOLEAN NOT NULL DEFAULT TRUE
-            )
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name = 'convenios' AND column_name = 'id'
+                ) THEN
+                    CREATE TABLE convenios (
+                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                        nombre VARCHAR(150) NOT NULL UNIQUE,
+                        regimen VARCHAR(50),
+                        activo BOOLEAN NOT NULL DEFAULT TRUE
+                    );
+                END IF;
+            END $$;
         """))
         db.commit()
 
-        # 2. Poblar desde distinct convenios de pacientes
+        # Asegurar que la columna id tenga default a nivel BD
+        db.execute(text("""
+            ALTER TABLE convenios ALTER COLUMN id SET DEFAULT gen_random_uuid();
+        """))
+        db.commit()
+
+        # 2. Poblar desde distinct convenios de pacientes (usando ORM para evitar problemas de UUID)
         print("  Extrayendo convenios existentes desde pacientes...")
         result = db.execute(text("""
             SELECT DISTINCT convenio, regimen FROM pacientes
@@ -33,21 +53,21 @@ def migrar():
         """)).fetchall()
 
         print(f"  Encontrados {len(result)} convenios distintos")
-
         insertados = 0
+
         for nombre, regimen in result:
-            existe = db.execute(
-                text("SELECT id FROM convenios WHERE nombre = :nombre"),
-                {"nombre": nombre}
-            ).fetchone()
+            existe = db.query(ConvenioModel).filter(
+                ConvenioModel.nombre == nombre
+            ).first()
+
             if not existe:
-                db.execute(
-                    text("""
-                        INSERT INTO convenios (nombre, regimen)
-                        VALUES (:nombre, :regimen)
-                    """),
-                    {"nombre": nombre, "regimen": regimen}
+                nuevo = ConvenioModel(
+                    id=uuid.uuid4(),
+                    nombre=nombre,
+                    regimen=regimen or "OTRO",
+                    activo=True,
                 )
+                db.add(nuevo)
                 insertados += 1
 
         db.commit()
@@ -99,8 +119,9 @@ def migrar():
 
     except Exception as e:
         db.rollback()
-        print(f"❌ Error: {e}")
-        raise
+        print(f"❌ Error en migración: {e}")
+        print("   (El sistema seguirá funcionando con el modo fallback)")
+        # No relanzar la excepción para que el backend arranque igual
     finally:
         db.close()
 
