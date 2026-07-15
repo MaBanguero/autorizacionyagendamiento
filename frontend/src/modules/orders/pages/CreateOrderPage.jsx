@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../../api/client";
 import { pacienteService } from "../../../api/services";
+import SearchableSelect from "../../../components/SearchableSelect";
 
 const initialForm = {
   numero_orden: "",
@@ -178,6 +179,11 @@ export default function CreateOrderPage() {
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const buscarConvenios = useCallback(async (q) => {
+    const res = await api.get("/api/pacientes/convenios", { params: { q } });
+    return res.data;
   }, []);
 
   // Cleanup del debounce
@@ -391,12 +397,12 @@ export default function CreateOrderPage() {
           value={form.paciente.direccion}
           onChange={(e) => updatePaciente("direccion", e.target.value)}
         />
-        <input
-          required
-          className="input"
-          placeholder="Convenio / EPS"
+        <SearchableSelect
           value={form.paciente.convenio}
-          onChange={(e) => updatePaciente("convenio", e.target.value)}
+          onChange={(val) => updatePaciente("convenio", val)}
+          onSearch={buscarConvenios}
+          placeholder="Buscar convenio / EPS..."
+          className="full"
         />
         <select
           className="input"
@@ -509,14 +515,12 @@ export default function CreateOrderPage() {
                   })
                 }
               />
-              <input
-                required
-                className="input"
-                placeholder="Convenio / EPS"
+              <SearchableSelect
                 value={newPaciente.convenio}
-                onChange={(e) =>
-                  setNewPaciente({ ...newPaciente, convenio: e.target.value })
-                }
+                onChange={(val) => setNewPaciente({ ...newPaciente, convenio: val })}
+                onSearch={buscarConvenios}
+                placeholder="Buscar convenio / EPS..."
+                className="full"
               />
               <select
                 className="input"

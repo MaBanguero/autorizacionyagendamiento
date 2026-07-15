@@ -8,6 +8,18 @@ export const pacienteService = {
   buscar: async (q, tipo = 'documento') =>
     (await api.get('/api/pacientes/buscar', { params: { q, tipo } })).data,
   crear: async (data) => (await api.post('/api/pacientes', data)).data,
+  convenios: async (q = '') =>
+    (await api.get('/api/pacientes/convenios', { params: { q } })).data,
+  listar: async (params = {}) =>
+    (await api.get('/api/pacientes', { params })).data,
+  importar: async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return (await api.post('/api/pacientes/importar', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000,
+    })).data;
+  },
 };
 
 

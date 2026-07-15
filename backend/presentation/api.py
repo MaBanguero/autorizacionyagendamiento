@@ -602,6 +602,16 @@ def disponibilidad_sede(
 
 # --- Paciente Endpoints ---
 
+@app.get("/api/pacientes/convenios")
+def listar_convenios(
+    q: str = Query(default=""),
+    paciente_repo = Depends(get_paciente_repository),
+    user: dict = Depends(get_current_user)
+):
+    """Retorna la lista de convenios/EPS distintas."""
+    return paciente_repo.listar_convenios(query=q)
+
+
 @app.get("/api/pacientes/buscar")
 def buscar_pacientes(
     q: str = Query(default="", min_length=1),

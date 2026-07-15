@@ -476,6 +476,13 @@ class PostgresPacienteRepository:
             "detalle_errores": errores[:20],
         }
 
+    def listar_convenios(self, query: str = ""):
+        q = self.db.query(PacienteModel.convenio).distinct()
+        if query:
+            q = q.filter(PacienteModel.convenio.ilike(f"%{query.strip()}%"))
+        resultados = q.order_by(PacienteModel.convenio.asc()).all()
+        return [r[0] for r in resultados if r[0]]
+
     def _to_dict(self, model):
         from datetime import datetime
         fn = model.fecha_nacimiento
