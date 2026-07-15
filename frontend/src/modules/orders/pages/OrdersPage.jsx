@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import api from "../../../api/client";
+import api, { API_BASE_URL } from "../../../api/client";
 import { formatDateTime } from "../../../utils/date";
 
 function statusClass(status) {
@@ -10,9 +10,8 @@ function statusClass(status) {
 }
 
 function downloadUrl(orderId) {
-  const base = import.meta.env.VITE_API_URL || "http://127.0.0.1:8081";
   const token = localStorage.getItem("token");
-  return `${base}/api/documentos/${orderId}/descargar${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+  return `${API_BASE_URL}/api/documentos/${orderId}/descargar${token ? `?token=${encodeURIComponent(token)}` : ""}`;
 }
 
 export default function OrdersPage() {

@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
-import api from "../../../api/client";
+import api, { API_BASE_URL } from "../../../api/client";
 import { formatDateTime } from "../../../utils/date";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8081";
 function downloadUrl(ordenId) {
   const token = localStorage.getItem("token");
-  return `${API_BASE}/api/documentos/${ordenId}/descargar${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+  return `${API_BASE_URL}/api/documentos/${ordenId}/descargar${token ? `?token=${encodeURIComponent(token)}` : ""}`;
 }
 
 export default function DocumentsPage() {
