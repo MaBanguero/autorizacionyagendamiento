@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { CalendarDays, FileText, Home, ClipboardList, Hospital, PlusCircle, LogOut, User, Users, MapPin, Stethoscope } from 'lucide-react';
+import { CalendarDays, FileText, Home, ClipboardList, Hospital, PlusCircle, LogOut, User, Users, MapPin, Stethoscope, Building2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useMemo } from 'react';
 
@@ -19,6 +19,7 @@ export default function Shell() {
       { to: '/agendamiento', label: 'Agendamiento', icon: CalendarDays, show: puedeAgendar || esAdmin },
       { to: '/pacientes', label: 'Pacientes', icon: User, show: true },
       { to: '/documentos', label: 'Documentos', icon: FileText, show: true },
+      { to: '/convenios', label: 'Convenios', icon: Building2, show: esAdmin },
       { to: '/sedes', label: 'Sedes', icon: Hospital, show: esAdmin },
       { to: '/ubicaciones', label: 'Municipios', icon: MapPin, show: esAdmin },
       { to: '/usuarios', label: 'Usuarios', icon: Users, show: esAdmin },

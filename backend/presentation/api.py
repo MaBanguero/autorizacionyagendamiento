@@ -123,6 +123,7 @@ class CrearPacienteRequest(BaseModel):
     fecha_nacimiento: date
     convenio: str
     regimen: str = "Contributivo"
+    convenio_id: Optional[str] = None
 
 
 class FilaPacienteCSV(BaseModel):
@@ -616,14 +617,183 @@ def buscar_pacientes_similares(
     return paciente_repo.buscar_similares(nombre, numero_documento=documento, limit=10)
 
 
-@app.get("/api/pacientes/convenios")
+# --- Convenios CRUD ---
+
+class CrearConvenioRequest(BaseModel):
+    nombre: str
+    regimen: str = ""
+    activo: bool = True
+
+class ActualizarConvenioRequest(BaseModel):
+    nombre: str
+    regimen: str = ""
+    activo: bool = True
+
+
+@app.get("/api/convenios")
 def listar_convenios(
+    q: str = Query(default=""),
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user)
+):
+    """Lista convenios con búsqueda opcional."""
+    from infrastructure.database.models import ConvenioModel
+    query = db.query(ConvenioModel)
+    if q:
+        query = query.filter(ConvenioModel.nombre.ilike(f"%{q.strip()}%"))
+    convenios = query.order_by(ConvenioModel.nombre.asc()).all()
+    from infrastructure.database.models import PacienteModel
+    from sqlalchemy import func
+    totales = dict(
+        db.query(
+            ConvenioModel.id,
+            func.count(PacienteModel.id)
+        )
+        .outerjoin(PacienteModel, PacienteModel.convenio_id == ConvenioModel.id)
+        .group_by(ConvenioModel.id)
+        .all()
+    )
+    return [
+        {
+            "id": str(c.id),
+            "nombre": c.nombre,
+            "regimen": c.regimen or "",
+            "activo": c.activo,
+            "total_pacientes": totales.get(c.id, 0),
+        }
+        for c in convenios
+    ]
+
+
+@app.post("/api/convenios")
+def crear_convenio(
+    req: CrearConvenioRequest,
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_roles("super_usuario"))
+):
+    from infrastructure.database.models import ConvenioModel
+    existe = db.query(ConvenioModel).filter(ConvenioModel.nombre == req.nombre.strip()).first()
+    if existe:
+        raise HTTPException(status_code=409, detail=f"Ya existe un convenio con nombre '{req.nombre}'")
+    convenio = ConvenioModel(nombre=req.nombre.strip(), regimen=req.regimen.strip(), activo=req.activo)
+    db.add(convenio)
+    db.commit()
+    db.refresh(convenio)
+    return {"id": str(convenio.id), "nombre": convenio.nombre, "regimen": convenio.regimen, "activo": convenio.activo}
+
+
+@app.put("/api/convenios/{convenio_id}")
+def actualizar_convenio(
+    convenio_id: str,
+    req: ActualizarConvenioRequest,
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_roles("super_usuario"))
+):
+    from infrastructure.database.models import ConvenioModel
+    convenio = db.query(ConvenioModel).filter(ConvenioModel.id == convenio_id).first()
+    if not convenio:
+        raise HTTPException(status_code=404, detail="Convenio no encontrado")
+    duplicado = db.query(ConvenioModel).filter(
+        ConvenioModel.nombre == req.nombre.strip(),
+        ConvenioModel.id != convenio_id
+    ).first()
+    if duplicado:
+        raise HTTPException(status_code=409, detail=f"Ya existe otro convenio con nombre '{req.nombre}'")
+    convenio.nombre = req.nombre.strip()
+    convenio.regimen = req.regimen.strip()
+    convenio.activo = req.activo
+    db.commit()
+    db.refresh(convenio)
+    return {"id": str(convenio.id), "nombre": convenio.nombre, "regimen": convenio.regimen, "activo": convenio.activo}
+
+
+@app.delete("/api/convenios/{convenio_id}")
+def eliminar_convenio(
+    convenio_id: str,
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_roles("super_usuario"))
+):
+    from infrastructure.database.models import ConvenioModel
+    from sqlalchemy import text
+    # Verificar pacientes vinculados
+    vinculados = db.execute(
+        text("SELECT COUNT(*) FROM pacientes WHERE convenio_id = :cid"),
+        {"cid": convenio_id}
+    ).scalar()
+    if vinculados and vinculados > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"No se puede eliminar: {vinculados} pacientes están vinculados a este convenio. Desactívalo en su lugar."
+        )
+    convenio = db.query(ConvenioModel).filter(ConvenioModel.id == convenio_id).first()
+    if not convenio:
+        raise HTTPException(status_code=404, detail="Convenio no encontrado")
+    db.delete(convenio)
+    db.commit()
+    return {"mensaje": "Convenio eliminado correctamente"}
+
+
+@app.post("/api/convenios/importar")
+def importar_convenios(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_roles("super_usuario"))
+):
+    """Importa convenios desde CSV (nombre, regimen, activo)."""
+    from infrastructure.database.models import ConvenioModel
+    content = file.file.read().decode("utf-8-sig")
+    reader = csv.DictReader(io.StringIO(content))
+
+    insertados = 0
+    actualizados = 0
+    errores = []
+
+    for idx, row in enumerate(reader, start=2):
+        try:
+            nombre = row.get("nombre", "").strip()
+            if not nombre:
+                continue
+            regimen = row.get("regimen", "").strip()
+            activo_str = row.get("activo", "SI").strip().upper()
+            activo = activo_str in ("SI", "TRUE", "1", "S")
+
+            existe = db.query(ConvenioModel).filter(ConvenioModel.nombre == nombre).first()
+            if existe:
+                existe.regimen = regimen
+                existe.activo = activo
+                actualizados += 1
+            else:
+                db.add(ConvenioModel(nombre=nombre, regimen=regimen, activo=activo))
+                insertados += 1
+        except Exception as e:
+            errores.append(f"Fila {idx}: {e}")
+
+    db.commit()
+    return {
+        "insertados": insertados,
+        "actualizados": actualizados,
+        "errores": len(errores),
+        "detalle": errores[:10],
+    }
+
+
+@app.get("/api/pacientes/convenios")
+def listar_convenios_antiguo(
     q: str = Query(default=""),
     paciente_repo = Depends(get_paciente_repository),
     user: dict = Depends(get_current_user)
 ):
-    """Retorna la lista de convenios/EPS distintas."""
-    return paciente_repo.listar_convenios(query=q)
+    """Retorna la lista de nombres de convenios desde la tabla maestra."""
+    from infrastructure.database.models import ConvenioModel
+    db = next(get_db())
+    try:
+        query = db.query(ConvenioModel).filter(ConvenioModel.activo == True)
+        if q:
+            query = query.filter(ConvenioModel.nombre.ilike(f"%{q.strip()}%"))
+        resultados = query.order_by(ConvenioModel.nombre.asc()).all()
+        return [c.nombre for c in resultados]
+    finally:
+        db.close()
 
 
 @app.get("/api/pacientes/buscar")

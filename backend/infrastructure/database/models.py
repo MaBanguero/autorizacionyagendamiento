@@ -57,6 +57,17 @@ class MunicipioModel(Base):
     sedes = relationship("SedeModel", secondary=sede_municipios, back_populates="municipios")
 
 
+class ConvenioModel(Base):
+    __tablename__ = "convenios"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    nombre = Column(String(150), unique=True, nullable=False, index=True)
+    regimen = Column(String(50), nullable=True)
+    activo = Column(Boolean, default=True, nullable=False)
+
+    pacientes = relationship("PacienteModel", back_populates="convenio_rel")
+
+
 class PacienteModel(Base):
     __tablename__ = "pacientes"
 
@@ -69,8 +80,11 @@ class PacienteModel(Base):
     telefono = Column(String(20), nullable=False)
     fecha_nacimiento = Column(DateTime, nullable=False)
     convenio = Column(String(100), nullable=False)
+    convenio_id = Column(UUID(as_uuid=True), ForeignKey("convenios.id"), nullable=True)
     regimen = Column(String(50), nullable=False)
     municipio_id = Column(UUID(as_uuid=True), ForeignKey("municipios.id"), nullable=True)
+
+    convenio_rel = relationship("ConvenioModel", back_populates="pacientes")
 
 
 class UserModel(Base):

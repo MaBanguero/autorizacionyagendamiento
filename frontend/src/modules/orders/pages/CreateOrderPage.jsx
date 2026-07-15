@@ -205,8 +205,8 @@ export default function CreateOrderPage() {
   }, []);
 
   const buscarConvenios = useCallback(async (q) => {
-    const res = await api.get("/api/pacientes/convenios", { params: { q } });
-    return res.data;
+    const res = await api.get("/api/convenios", { params: { q } });
+    return (res.data || []).filter((c) => c.activo).map((c) => c.nombre);
   }, []);
 
   // Cleanup del debounce

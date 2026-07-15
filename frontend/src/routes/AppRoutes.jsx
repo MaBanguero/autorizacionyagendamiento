@@ -12,6 +12,7 @@ import UsersPage from "../modules/users/pages/UsersPage";
 import UbicacionesPage from "../modules/ubicaciones/pages/UbicacionesPage";
 import PacientesPage from "../modules/pacientes/pages/PacientesPage";
 import ImportPacientesPage from "../modules/pacientes/pages/ImportPacientesPage";
+import ConveniosPage from "../modules/convenios/pages/ConveniosPage";
 
 export default function AppRoutes() {
   return (
@@ -41,6 +42,11 @@ export default function AppRoutes() {
         <Route path="pacientes/importar" element={
           <ProtectedRoute roles={["super_usuario"]}>
             <ImportPacientesPage />
+          </ProtectedRoute>
+        } />
+        <Route path="convenios" element={
+          <ProtectedRoute roles={["super_usuario"]}>
+            <ConveniosPage />
           </ProtectedRoute>
         } />
         <Route path="sedes" element={<SedesPage />} />
