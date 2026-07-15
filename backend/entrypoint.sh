@@ -22,5 +22,15 @@ python seed_data.py
 echo "Migrando convenios..."
 python migrate_convenios.py
 
+echo "Creando tabla de procedimientos..."
+python -c "
+from core.database import engine
+from infrastructure.database.models import ProcedimientoModel
+ProcedimientoModel.__table__.create(engine, checkfirst=True)
+print('  Tabla procedimientos lista')
+"
+echo "Cargando procedimientos..."
+python seed_procedimientos.py
+
 echo "Iniciando backend..."
 exec python -m uvicorn presentation.api:app --host 0.0.0.0 --port 8000
