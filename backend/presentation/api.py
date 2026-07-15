@@ -1021,11 +1021,15 @@ def documentos_generados(
 @app.get("/api/procedimientos")
 def listar_procedimientos(
     q: str = Query(default=""),
+    top: int = Query(default=0, ge=0, le=100),
     limit: int = Query(default=30, ge=1, le=100),
     db: Session = Depends(get_db),
     user: dict = Depends(get_current_user)
 ):
-    """Busca procedimientos por código o nombre."""
+    """
+    Busca procedimientos por código o nombre.
+    top=N: retorna los primeros N (sugerencias iniciales).
+    """
     from infrastructure.database.models import ProcedimientoModel
     query = db.query(ProcedimientoModel).filter(ProcedimientoModel.activo == True)
     if q:
@@ -1034,7 +1038,7 @@ def listar_procedimientos(
             ProcedimientoModel.codigo.ilike(termino)
             | ProcedimientoModel.nombre.ilike(termino)
         )
-    resultados = query.order_by(ProcedimientoModel.codigo.asc()).limit(limit).all()
+    resultados = query.order_by(ProcedimientoModel.codigo.asc()).limit(top or limit).all()
     return [
         {
             "id": str(p.id),

@@ -53,11 +53,15 @@ export default function CreateOrderPage() {
   const [newPaciente, setNewPaciente] = useState(initialNewPaciente);
   const [creatingPaciente, setCreatingPaciente] = useState(false);
 
-  // Top convenios (más usados) para sugerencias iniciales
+  // Top convenios y procedimientos para sugerencias iniciales
   const [topConvenios, setTopConvenios] = useState([]);
+  const [topProcedimientos, setTopProcedimientos] = useState([]);
   useEffect(() => {
     api.get("/api/convenios", { params: { top: 15 } }).then((res) => {
       setTopConvenios((res.data || []).map((c) => c.nombre));
+    }).catch(() => {});
+    api.get("/api/procedimientos", { params: { top: 30 } }).then((res) => {
+      setTopProcedimientos((res.data || []).map((p) => p.display));
     }).catch(() => {});
   }, []);
 
@@ -367,6 +371,7 @@ export default function CreateOrderPage() {
             const res = await api.get("/api/procedimientos", { params: { q, limit: 30 } });
             return (res.data || []).map((p) => p.display);
           }, [])}
+          initialOptions={topProcedimientos}
           placeholder="Buscar estudio / procedimiento (código o nombre)..."
           className="full"
         />
