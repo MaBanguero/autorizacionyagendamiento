@@ -17,6 +17,7 @@ export default function Shell() {
       { to: '/ordenes', label: 'Órdenes', icon: ClipboardList, show: true },
       { to: '/ordenes/nueva', label: 'Nueva orden', icon: PlusCircle, show: puedeOrdenar || esAdmin },
       { to: '/agendamiento', label: 'Agendamiento', icon: CalendarDays, show: puedeAgendar || esAdmin },
+      { to: '/pacientes', label: 'Pacientes', icon: User, show: true },
       { to: '/documentos', label: 'Documentos', icon: FileText, show: true },
       { to: '/sedes', label: 'Sedes', icon: Hospital, show: esAdmin },
       { to: '/ubicaciones', label: 'Municipios', icon: MapPin, show: esAdmin },

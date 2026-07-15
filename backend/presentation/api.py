@@ -1,8 +1,10 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, Query, Request
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, Query, Request, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import os
+import csv
+import io
 from pydantic import BaseModel
 from datetime import datetime, date
 from typing import Optional, List
@@ -121,6 +123,18 @@ class CrearPacienteRequest(BaseModel):
     fecha_nacimiento: date
     convenio: str
     regimen: str = "Contributivo"
+
+
+class FilaPacienteCSV(BaseModel):
+    tipo_documento: str = "CC"
+    numero_documento: str
+    nombre: str
+    sexo: str = "O"
+    fecha_nacimiento: date
+    convenio: str = ""
+    regimen: str = ""
+    direccion: str = ""
+    telefono: str = ""
 
 
 class CrearSedeRequest(BaseModel):
@@ -622,6 +636,70 @@ def crear_paciente(
     data["fecha_nacimiento"] = datetime.combine(data["fecha_nacimiento"], datetime.min.time())
     paciente = paciente_repo.crear_paciente(data)
     return paciente
+
+
+@app.get("/api/pacientes")
+def listar_pacientes(
+    q: str = Query(default=""),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    paciente_repo = Depends(get_paciente_repository),
+    user: dict = Depends(get_current_user)
+):
+    """Lista pacientes con búsqueda y paginación."""
+    return paciente_repo.listar_pacientes(query=q, limit=limit, offset=offset)
+
+
+@app.post("/api/pacientes/importar")
+def importar_pacientes(
+    file: UploadFile = File(...),
+    paciente_repo = Depends(get_paciente_repository),
+    user: dict = Depends(get_current_user)
+):
+    """Importa pacientes desde un archivo CSV/TSV."""
+    content = file.file.read().decode("utf-8-sig")
+    reader = csv.DictReader(io.StringIO(content), delimiter="\t")
+
+    rows = []
+    errores_parse = []
+
+    for idx, row in enumerate(reader, start=2):
+        try:
+            fecha_nac = row.get("fechanacimiento", "").strip()
+            if fecha_nac:
+                try:
+                    fecha_nac = datetime.strptime(fecha_nac, "%Y-%m-%d")
+                except ValueError:
+                    fecha_nac = datetime(1900, 1, 1)
+            else:
+                fecha_nac = datetime(1900, 1, 1)
+
+            rows.append({
+                "tipo_documento": row.get("tipodocu", "CC").strip(),
+                "numero_documento": row.get("identificacion", "").strip(),
+                "nombre": " ".join(filter(None, [
+                    row.get("nombre1", "").strip(),
+                    row.get("nombre2", "").strip(),
+                    row.get("apellido1", "").strip(),
+                    row.get("apellido2", "").strip(),
+                ])),
+                "sexo": row.get("sexo", "O").strip(),
+                "fecha_nacimiento": fecha_nac,
+                "convenio": row.get("convenionombre", "").strip(),
+                "regimen": "",  # se auto-detectará en el repositorio
+            })
+        except Exception as e:
+            errores_parse.append(f"Fila {idx}: {e}")
+
+    if not rows:
+        raise HTTPException(status_code=400, detail="No se encontraron filas válidas en el archivo")
+
+    resultado = paciente_repo.importar_masivo(rows)
+    resultado["total_procesadas"] = len(rows)
+    resultado["errores_parse"] = len(errores_parse)
+    resultado["detalle_errores"] = (resultado.get("detalle_errores", []) + errores_parse)[:30]
+
+    return resultado
 
 
 @app.get("/api/ordenes")

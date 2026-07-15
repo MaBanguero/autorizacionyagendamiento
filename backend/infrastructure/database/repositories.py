@@ -349,6 +349,133 @@ class PostgresPacienteRepository:
         self.db.refresh(paciente)
         return self._to_dict(paciente)
 
+    def listar_pacientes(self, query: str = "", limit: int = 50, offset: int = 0):
+        q = self.db.query(PacienteModel)
+
+        if query:
+            termino = f"%{query.strip()}%"
+            q = q.filter(
+                PacienteModel.nombre.ilike(termino)
+                | PacienteModel.numero_documento.ilike(termino)
+            )
+
+        total = q.count()
+
+        pacientes = (
+            q
+            .order_by(PacienteModel.nombre.asc())
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+
+        return {
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "pacientes": [self._to_dict(p) for p in pacientes],
+        }
+
+    def importar_masivo(self, rows: list[dict]) -> dict:
+        """
+        Importa una lista de pacientes en batch.
+        Cada row debe tener: tipo_documento, numero_documento, nombre, sexo,
+        fecha_nacimiento, convenio, regimen.
+        Opcional: direccion, telefono.
+        """
+        from datetime import datetime as dt
+
+        # Obtener documentos existentes
+        existentes = set(
+            row[0] for row in self.db.query(PacienteModel.numero_documento).all()
+        )
+
+        insertados = 0
+        omitidos = 0
+        errores = []
+        batch = []
+        BATCH_SIZE = 500
+
+        def extraer_regimen(nombre_convenio: str) -> str:
+            n = nombre_convenio.upper() if nombre_convenio else ""
+            if "CONTRIBUTIVO" in n or "CONT" in n:
+                return "CONTRIBUTIVO"
+            elif "SUBSIDIADO" in n or "SUB" in n:
+                return "SUBSIDIADO"
+            else:
+                return "OTRO"
+
+        for idx, row in enumerate(rows):
+            try:
+                num_doc = row.get("numero_documento", "").strip()
+                if not num_doc:
+                    errores.append(f"Fila {idx + 1}: número de documento vacío")
+                    continue
+
+                if num_doc in existentes:
+                    omitidos += 1
+                    continue
+
+                fecha_nac = row.get("fecha_nacimiento")
+                if isinstance(fecha_nac, str):
+                    fecha_nac = dt.strptime(fecha_nac.strip(), "%Y-%m-%d")
+
+                if fecha_nac and fecha_nac > dt.now():
+                    fecha_nac = dt(1900, 1, 1)
+
+                if not fecha_nac:
+                    fecha_nac = dt(1900, 1, 1)
+
+                sexo = row.get("sexo", "O").strip().upper()
+                if sexo not in ("M", "F", "O"):
+                    sexo = "O"
+
+                tipo_doc = row.get("tipo_documento", "CC").strip().upper()
+                validos = {"CC", "TI", "CE", "PT", "RC", "PA", "MS", "AS"}
+                if tipo_doc not in validos:
+                    tipo_doc = "CC"
+
+                convenio = row.get("convenio", "SIN CONVENIO")
+                regimen = row.get("regimen", "") or extraer_regimen(convenio)
+
+                paciente = {
+                    "tipo_documento": tipo_doc,
+                    "numero_documento": num_doc,
+                    "nombre": row.get("nombre", "").strip(),
+                    "sexo": sexo,
+                    "direccion": row.get("direccion", "SIN DIRECCION"),
+                    "telefono": row.get("telefono", "0000000000"),
+                    "fecha_nacimiento": fecha_nac,
+                    "convenio": convenio,
+                    "regimen": regimen,
+                }
+
+                batch.append(paciente)
+                existentes.add(num_doc)
+
+                if len(batch) >= BATCH_SIZE:
+                    self.db.bulk_insert_mappings(PacienteModel, batch)
+                    self.db.flush()
+                    insertados += len(batch)
+                    batch = []
+
+            except Exception as e:
+                errores.append(f"Fila {idx + 1}: {e}")
+
+        if batch:
+            self.db.bulk_insert_mappings(PacienteModel, batch)
+            self.db.flush()
+            insertados += len(batch)
+
+        self.db.commit()
+
+        return {
+            "insertados": insertados,
+            "omitidos_duplicados": omitidos,
+            "errores": len(errores),
+            "detalle_errores": errores[:20],
+        }
+
     def _to_dict(self, model):
         from datetime import datetime
         fn = model.fecha_nacimiento
